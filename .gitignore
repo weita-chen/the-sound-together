@@ -1,0 +1,14 @@
+node_modules
+dist
+.output
+.nitro
+.vercel
+screenshots
+attachments
+artifacts
+.env
+.env.*
+*.log
+.tanstack
+.grok/*
+!.grok/app-env.json

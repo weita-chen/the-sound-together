@@ -74,37 +74,68 @@ function textOf(content: unknown): string {
   return "";
 }
 
+type GeminiPart = { text?: string; thought?: boolean };
+
+function geminiVisibleText(body: {
+  candidates?: { content?: { parts?: GeminiPart[] }; finishReason?: string }[];
+}): string {
+  const parts = body.candidates?.[0]?.content?.parts ?? [];
+  return parts
+    .filter((part) => !part.thought)
+    .map((part) => part.text ?? "")
+    .join("")
+    .trim();
+}
+
+async function geminiComplete(
+  system: string,
+  user: string,
+  maxTokens: number,
+  disableThinking: boolean,
+): Promise<string | null> {
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  const generationConfig: Record<string, unknown> = {
+    temperature: 0.85,
+    maxOutputTokens: maxTokens,
+  };
+  if (disableThinking) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": process.env.GEMINI_API_KEY!.trim(),
+      },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: user }] }],
+        generationConfig,
+      }),
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+  if (!res.ok) {
+    console.error("gemini feedback failed", res.status, await res.text());
+    return null;
+  }
+  const body = (await res.json()) as {
+    candidates?: { content?: { parts?: GeminiPart[] }; finishReason?: string }[];
+  };
+  const raw = geminiVisibleText(body);
+  if (!raw) console.error("gemini feedback empty", body.candidates?.[0]?.finishReason ?? "none");
+  return raw || null;
+}
 async function complete(system: string, user: string, maxTokens: number): Promise<string | null> {
   const provider = aiProvider();
   if (provider === "none") return null;
+  const tokens = Math.max(maxTokens, 512);
   try {
     if (provider === "gemini") {
-      const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": process.env.GEMINI_API_KEY!.trim(),
-          },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: system }] },
-            contents: [{ role: "user", parts: [{ text: user }] }],
-            generationConfig: { temperature: 0.85, maxOutputTokens: maxTokens },
-          }),
-          signal: AbortSignal.timeout(14_000),
-        },
+      return (
+        (await geminiComplete(system, user, tokens, true)) ??
+        (await geminiComplete(system, user, tokens, false))
       );
-      if (!res.ok) {
-        console.error("gemini feedback failed", res.status);
-        return null;
-      }
-      const body = (await res.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] } }[];
-      };
-      const raw = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-      return raw.trim() ? raw : null;
     }
 
     const model = process.env.XAI_MODEL?.trim() || "grok-4.5";
@@ -117,13 +148,13 @@ async function complete(system: string, user: string, maxTokens: number): Promis
       body: JSON.stringify({
         model,
         temperature: 0.85,
-        max_tokens: maxTokens,
+        max_tokens: tokens,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
       }),
-      signal: AbortSignal.timeout(14_000),
+      signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) {
       console.error("grok feedback failed", res.status);

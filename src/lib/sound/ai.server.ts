@@ -24,14 +24,18 @@ const WELCOME_SYSTEM = `你是一位安靜的音樂合作者。有人剛留下�
 - 不要使用引號包住整句。
 - 最多 40 個字。`;
 
-const CLOSING_SYSTEM = `你是一位安靜的音樂合作者。請用台灣繁體中文寫一段短文，1 到 3 句。
+const CLOSING_SYSTEM = `你是一位安靜的音樂合作者。請用台灣繁體中文寫兩段，中間空一行。
+
+第一段是統整：聽完所有回答之後的回饋。把情緒、畫面和記憶收成一段理解，不要逐題複述，不要列點。2 到 4 句，最多 140 字。
+
+第二段是聲音：描述從這些回覆裡感覺到的聲音，可能長什麼樣子。可以寫速度、空間、音色、質地或樂器的感覺，但不要寫成製作清單、曲名或編曲指示。2 到 4 句，最多 140 字。
+
 規則：
-- 反映這些回答整體的情緒氣氛與意象。
-- 感覺個人、溫暖，但不要逐條摘要對方說了什麼。
+- 第一段以「統整：」開頭，第二段以「聲音：」開頭。
+- 溫柔、具體、有意象。
 - 不要做心理診斷，也不要推測對方的人格。
 - 不要提到人工智慧、問卷或「生成」。
-- 不要用「謝謝你的分享」開頭。
-- 最多 120 個字。`;
+- 不要用「謝謝你的分享」開頭。`;
 
 export function aiProvider(): AiProvider {
   if (process.env.GEMINI_API_KEY?.trim()) return "gemini";
@@ -53,7 +57,7 @@ function cleanPassage(raw: string): string {
   t = t.replace(/^(結尾|短文)\s*[:：]\s*/, "");
   t = t.replace(/^["「『]+/, "").replace(/["」』]+$/, "").trim();
   t = t.replace(/\n{3,}/g, "\n\n");
-  return t.slice(0, 240);
+  return t.slice(0, 560);
 }
 
 function textOf(content: unknown): string {
@@ -164,8 +168,8 @@ export async function poeticClosing(
   const body = filled.map((b) => `【${b.title}】\n${b.text}`).join("\n\n");
   const raw = await complete(
     CLOSING_SYSTEM,
-    `這位參與者希望被稱為「${name.slice(0, 40)}」。下面是留下的文字。\n\n${body}\n\n請寫那段短文。`,
-    280,
+    `這位參與者希望被稱為「${name.slice(0, 40)}」。下面是留下的文字。\n\n${body}\n\n請寫「統整：」與「聲音：」兩段。`,
+    700,
   );
   if (!raw) return null;
   const passage = cleanPassage(raw);

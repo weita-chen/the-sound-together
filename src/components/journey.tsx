@@ -10,11 +10,12 @@ import {
   resumeByToken,
   resumeSubmission,
   saveAnswer,
+  saveTonePrompt,
   submitJourney,
   welcomeLine,
 } from "@/lib/sound/fns";
 import { appPath } from "@/lib/sound/paths";
-import { LIMITS, QUESTIONS } from "@/lib/sound/questions";
+import { LIMITS, QUESTIONS, readClosing } from "@/lib/sound/questions";
 import type { SubmissionView } from "@/lib/sound/types";
 
 const STORAGE = "sound-together.v1";
@@ -48,6 +49,8 @@ export function Journey() {
   const [name, setName] = useState("");
   const [qIndex, setQIndex] = useState(0);
   const [draft, setDraft] = useState("");
+  const [tone, setTone] = useState("");
+  const [toneNote, setToneNote] = useState("");
   const [line, setLine] = useState("");
   const [welcome, setWelcome] = useState("");
   const [busy, setBusy] = useState(false);
@@ -83,8 +86,9 @@ export function Journey() {
         if (next === "landing" || next === "name" || next === "review" || next === "question" || next === "done") {
           setStage(next === "done" && !view.closingMessage && view.status !== "submitted" ? "review" : next);
         }
-      } catch {
-        localStorage.removeItem(STORAGE);
+      } catch (err) {
+        const message = messageOf(err);
+        if (message.includes("找不到") || message.includes("代碼")) localStorage.removeItem(STORAGE);
       } finally {
         if (!cancel) setBooting(false);
       }
@@ -116,6 +120,29 @@ export function Journey() {
     }, 700);
     return () => window.clearTimeout(handle);
   }, [booting, draft, question, session, stage]);
+
+  useEffect(() => {
+    setTone(submission?.tonePrompt ?? "");
+    setToneNote("");
+  }, [submission?.id]);
+
+  useEffect(() => {
+    if (booting || stage !== "done" || !session || !submission) return;
+    if (tone === submission.tonePrompt) return;
+    setToneNote("正在留下…");
+    const sent = tone;
+    const handle = window.setTimeout(() => {
+      void saveTonePrompt({
+        data: { id: session.id, token: session.token, prompt: sent },
+      })
+        .then(() => {
+          setSubmission((prev) => (prev && prev.tonePrompt !== sent ? { ...prev, tonePrompt: sent } : prev));
+          setToneNote(sent.trim() ? "已留下。" : "");
+        })
+        .catch(() => setToneNote("剛剛沒有留下，再貼一次。"));
+    }, 700);
+    return () => window.clearTimeout(handle);
+  }, [booting, session, stage, submission, tone]);
 
   function patchText(questionId: string, text: string, feedback?: string | null) {
     setSubmission((prev) => {
@@ -345,6 +372,7 @@ export function Journey() {
   }
 
   const progress = stage === "review" || stage === "done" ? 1 : (qIndex + 1) / QUESTIONS.length;
+  const closing = readClosing(submission?.closingMessage);
 
   return (
     <>
@@ -355,17 +383,19 @@ export function Journey() {
             <div className="progress" style={{ transform: `scaleX(${progress})` }} />
           </div>
         )}
-        <div className="column flex flex-1 flex-col justify-center py-10">
+        <div className="column flex flex-1 flex-col justify-center py-12 sm:py-24">
           {stage === "landing" && (
-            <section className="rise mx-auto flex w-full max-w-xl flex-col items-center gap-8 text-center">
-              <p className="eyebrow">A private listening</p>
-              <h1 className="serif text-5xl leading-tight sm:text-6xl">The Sound Together</h1>
-              <div className="flex flex-col gap-4 text-base sm:text-lg">
+            <section className="rise mx-auto flex w-full max-w-md flex-col items-center gap-12 text-center sm:gap-24">
+              <div className="flex flex-col items-center gap-10">
+                <p className="eyebrow">A private listening</p>
+                <h1 className="serif text-4xl leading-normal sm:text-5xl">The Sound Together</h1>
+              </div>
+              <div className="verse">
                 <p>每一段記憶都有聲音。每一種感受都帶著節奏。</p>
                 <p>在去過的地方、活過的片刻，和還記得的旋律之間，有一首配樂正等著被聽見。</p>
                 <p>這是一封邀請。分享一小塊你的世界。那些故事會變成原創音樂的靈感——為你，也為我們一起。</p>
               </div>
-              <p className="text-sm">大約 8–10 分鐘。每一題都可以略過。</p>
+              <p className="text-xs leading-loose tracking-widest">大約 8–10 分鐘。每一題都可以略過。</p>
               <div className="flex flex-wrap gap-3">
                 {session && submission?.status === "submitted" ? (
                   <button type="button" className="btn btn-primary" disabled={booting} onClick={() => setStage("done")}>
@@ -418,10 +448,10 @@ export function Journey() {
           )}
 
           {stage === "name" && (
-            <section className="rise flex flex-col gap-6">
+            <section className="rise mx-auto flex w-full max-w-md flex-col gap-10">
               <p className="eyebrow">The Sound Together</p>
-              <h1 className="serif text-4xl">怎麼稱呼你？</h1>
-              <p className="text-dim">可以用名字，或你喜歡的暱稱。不用註冊。</p>
+              <h1 className="serif text-3xl leading-normal sm:text-4xl">怎麼稱呼你？</h1>
+              <p className="text-sm leading-loose">可以用名字，或你喜歡的暱稱。不用註冊。</p>
               <form
                 className="flex flex-col gap-4"
                 onSubmit={(e) => {
@@ -455,8 +485,8 @@ export function Journey() {
           )}
 
           {stage === "welcome" && (
-            <section className="rise flex min-h-[50dvh] flex-col justify-center gap-10">
-              <p className="serif text-2xl leading-relaxed sm:text-3xl">{welcome}</p>
+            <section className="rise mx-auto flex min-h-[50dvh] w-full max-w-md flex-col justify-center gap-14">
+              <p className="serif text-xl leading-loose sm:text-2xl">{welcome}</p>
               <button type="button" className="btn btn-primary self-start" onClick={() => setStage("question")}>
                 往下走
               </button>
@@ -464,18 +494,18 @@ export function Journey() {
           )}
 
           {stage === "question" && question && (
-            <section className="rise flex flex-col" key={question.id}>
+            <section className="rise mx-auto flex w-full max-w-md flex-col" key={question.id}>
               <p className="eyebrow tabular-nums">
                 {String(qIndex + 1).padStart(2, "0")} / {String(QUESTIONS.length).padStart(2, "0")}
               </p>
-              <h1 className="serif mt-4 text-4xl">{question.title}</h1>
-              <p className="mt-5 text-lg text-dim">{question.prompt}</p>
+              <h1 className="serif mt-8 text-3xl leading-normal">{question.title}</h1>
+              <p className="mt-10 text-sm leading-loose tracking-wide">{question.prompt}</p>
               <label className="sr-only" htmlFor="answer">
                 {question.title}
               </label>
               <textarea
                 id="answer"
-                className="write mt-8"
+                className="write mt-12"
                 value={draft}
                 maxLength={LIMITS.maxText}
                 placeholder="想到什麼就寫。也可以先空著。"
@@ -506,7 +536,7 @@ export function Journey() {
               )}
               {recording && <p className="mt-4 text-sm text-faint">先停止錄音，再往下走。</p>}
               {error && <p className="alert mt-4">{error}</p>}
-              <div className="mt-8 flex flex-wrap items-center gap-2">
+              <div className="mt-12 flex flex-wrap items-center gap-2">
                 <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => void back()}>
                   返回
                 </button>
@@ -521,8 +551,8 @@ export function Journey() {
           )}
 
           {stage === "interlude" && (
-            <section className="rise flex min-h-[50dvh] flex-col justify-center gap-10">
-              <p className="serif text-2xl leading-relaxed sm:text-3xl">{line}</p>
+            <section className="rise mx-auto flex min-h-[50dvh] w-full max-w-md flex-col justify-center gap-14">
+              <p className="serif text-xl leading-loose sm:text-2xl">{line}</p>
               <button type="button" className="btn btn-primary self-start" onClick={afterInterlude}>
                 繼續
               </button>
@@ -530,20 +560,20 @@ export function Journey() {
           )}
 
           {stage === "review" && submission && (
-            <section className="rise flex flex-col gap-8">
+            <section className="rise mx-auto flex w-full max-w-md flex-col gap-12">
               <div>
                 <p className="eyebrow">{submission.displayName}</p>
-                <h1 className="serif mt-3 text-4xl">再看一次</h1>
-                <p className="mt-3 text-dim">可以改任何一題，也可以就這樣交給我。</p>
+                <h1 className="serif mt-8 text-3xl leading-normal">再看一次</h1>
+                <p className="mt-6 text-sm leading-loose">可以改任何一題，也可以就這樣交給我。</p>
               </div>
               <ol className="flex flex-col">
                 {submission.answers.map((item, index) => {
                   const q = QUESTIONS[index];
                   return (
-                    <li key={item.questionId} className="flex items-start justify-between gap-4 border-t border-line py-4">
+                    <li key={item.questionId} className="flex items-start justify-between gap-4 border-t border-line py-6">
                       <div>
-                        <p className="text-sm text-faint">{q.title}</p>
-                        <p className="mt-1">{excerpt(item.text, item.attachments.length)}</p>
+                        <p className="text-xs tracking-wide text-faint">{q.title}</p>
+                        <p className="mt-2 text-sm leading-loose">{excerpt(item.text, item.attachments.length)}</p>
                       </div>
                       <button
                         type="button"
@@ -574,22 +604,53 @@ export function Journey() {
 
           {stage === "submitting" && (
             <section className="rise flex min-h-[40dvh] flex-col justify-center">
-              <p className="serif text-3xl">正在把這些留下。</p>
+              <p className="serif text-2xl leading-loose">正在把這些回答收成一段聲音。</p>
             </section>
           )}
 
           {stage === "done" && (
-            <section className="rise flex flex-col items-start gap-8">
+            <section className="rise mx-auto flex w-full max-w-md flex-col items-start gap-12">
               <svg className="done-ring" viewBox="0 0 80 80" aria-hidden="true">
                 <circle cx="40" cy="40" r="28" />
               </svg>
-              <p className="eyebrow">The Sound Together</p>
-              <h1 className="serif text-4xl leading-snug sm:text-5xl">
-                {submission?.closingMessage || "謝謝你把世界的一角留在這裡。"}
-              </h1>
-              <div className="max-w-xl text-dim">
-                <p>謝謝你分享了世界的一小塊。</p>
-                <p className="mt-3">也許有一天，當我們再坐在一起，你會在音樂裡聽見一點自己。</p>
+              <div className="flex flex-col gap-6">
+                <p className="eyebrow">統整</p>
+                <h1 className="serif text-2xl leading-loose">
+                  {closing.reflection || "謝謝你把世界的一角留在這裡。"}
+                </h1>
+              </div>
+              {closing.sound && (
+                <div className="flex flex-col gap-6">
+                  <p className="eyebrow">聲音</p>
+                  <p className="text-sm leading-loose tracking-wide">{closing.sound}</p>
+                </div>
+              )}
+              <div className="flex w-full flex-col gap-6 border-t border-line pt-10">
+                <p className="eyebrow">可略過</p>
+                <h2 className="serif text-2xl leading-normal">為這段聲音加一點質感</h2>
+                <p className="text-sm leading-loose">
+                  到聲音鍛造實驗室，把音色、空間和質地組好。複製那段 prompt，貼回這裡。沒有也沒關係。
+                </p>
+                <a
+                  className="btn btn-ghost self-start"
+                  href="https://weita-chen.github.io/tonelab/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  打開 ToneLab
+                </a>
+                <label className="sr-only" htmlFor="tonelab">
+                  ToneLab prompt
+                </label>
+                <textarea
+                  id="tonelab"
+                  className="write"
+                  value={tone}
+                  maxLength={LIMITS.maxText}
+                  placeholder="貼上在 ToneLab 複製的 prompt"
+                  onChange={(e) => setTone(e.target.value)}
+                />
+                {toneNote && <p className="text-sm">{toneNote}</p>}
               </div>
               <div className="flex flex-wrap gap-3">
                 <button type="button" className="btn btn-primary" onClick={() => setStage("landing")}>

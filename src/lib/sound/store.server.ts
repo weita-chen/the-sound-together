@@ -277,17 +277,31 @@ async function attachmentsFor(sql: Sql, answerIds: string[]): Promise<Map<string
   return map;
 }
 
+async function ensureToneColumn(sql: Sql): Promise<void> {
+  const g = globalThis as typeof globalThis & { __toneCol__?: Promise<void> };
+  g.__toneCol__ ??= sql
+    .query(`alter table submissions add column if not exists tonelab_prompt text not null default ''`)
+    .then(() => undefined)
+    .catch((err) => {
+      g.__toneCol__ = undefined;
+      throw err;
+    });
+  await g.__toneCol__;
+}
+
 async function loadView(sql: Sql, id: string): Promise<SubmissionView> {
+  await ensureToneColumn(sql);
   const subs = await sql<{
     id: string;
     display_name: string;
     status: string;
     production_status: string;
     closing_message: string | null;
+    tonelab_prompt: string | null;
     created_at: unknown;
     updated_at: unknown;
   }>`
-    select id, display_name, status, production_status, closing_message, created_at, updated_at
+    select id, display_name, status, production_status, closing_message, tonelab_prompt, created_at, updated_at
     from submissions where id = ${id}
   `;
   const sub = subs[0];
@@ -310,6 +324,7 @@ async function loadView(sql: Sql, id: string): Promise<SubmissionView> {
     status: asStatus(sub.status),
     productionStatus: asProduction(sub.production_status),
     closingMessage: sub.closing_message,
+    tonePrompt: sub.tonelab_prompt ?? "",
     createdAt: iso(sub.created_at),
     updatedAt: iso(sub.updated_at),
     note: notes[0]?.note ?? "",
@@ -571,6 +586,18 @@ export async function submitJourney(id: string, token: string): Promise<{ closin
   return { closing };
 }
 
+export async function saveTonePrompt(id: string, token: string, prompt: string): Promise<void> {
+  const text = prompt.replace(/\u0000/g, "").slice(0, 8000);
+  const sql = await getSql();
+  await ensureToneColumn(sql);
+  await owns(sql, id, token);
+  await sql`
+    update submissions
+    set tonelab_prompt = ${text}, updated_at = now()
+    where id = ${id}
+  `;
+}
+
 export async function listStudio(cookieHeader: string | null): Promise<{
   items: StudioListItem[];
   participants: number;
@@ -789,6 +816,7 @@ export async function exportCsv(cookieHeader: string | null): Promise<string> {
     "建立時間",
     "更新時間",
     "結尾",
+    "聲音質感",
     "主辦筆記",
     ...QUESTIONS.flatMap((q) => [`${q.title}・文字`, `${q.title}・回應`, `${q.title}・檔案`]),
   ];
@@ -801,6 +829,7 @@ export async function exportCsv(cookieHeader: string | null): Promise<string> {
       view.createdAt,
       view.updatedAt,
       view.closingMessage ?? "",
+      view.tonePrompt,
       view.note,
       ...view.answers.flatMap((a) => [
         a.text,
@@ -845,6 +874,9 @@ export function renderText(view: SubmissionView): string {
   });
   lines.push("結尾");
   lines.push(view.closingMessage?.trim() || "（尚未寫下）");
+  lines.push("");
+  lines.push("聲音質感（ToneLab）");
+  lines.push(view.tonePrompt.trim() || "（沒有貼上）");
   lines.push("");
   return lines.join("\n");
 }

@@ -21,6 +21,7 @@ export type SubmissionView = {
   status: SubmissionStatus;
   productionStatus: ProductionStatus;
   closingMessage: string | null;
+  tonePrompt: string;
   createdAt: string;
   updatedAt: string;
   answers: AnswerView[];

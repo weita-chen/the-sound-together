@@ -92,8 +92,23 @@
   .eyebrow {
     color: var(--color-ink);
     font-size: 0.75rem;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.28em;
     text-transform: uppercase;
+  }
+  .verse {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+    font-size: 0.875rem;
+    line-height: 2.2;
+    letter-spacing: 0.08em;
+  }
+  @media (min-width: 640px) {
+    .verse {
+      gap: 2.75rem;
+      line-height: 2.45;
+      letter-spacing: 0.14em;
+    }
   }
   .btn {
     display: inline-flex;
@@ -158,8 +173,8 @@
   }
   .write {
     min-height: 11rem;
-    padding: 1rem 1rem 1.25rem;
-    line-height: 1.7;
+    padding: 1.15rem 1.15rem 1.4rem;
+    line-height: 2;
     resize: vertical;
     border-radius: 1.25rem;
   }

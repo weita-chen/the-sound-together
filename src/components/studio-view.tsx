@@ -25,6 +25,7 @@ import {
   QUESTIONS,
   STATUS_LABEL,
   formatWhen,
+  readClosing,
   type ProductionStatus,
 } from "@/lib/sound/questions";
 import type { StudioGate, StudioListItem, SubmissionView } from "@/lib/sound/types";
@@ -334,15 +335,31 @@ export function StudioProfile({ id }: { id: string }) {
       </div>
 
       {view.closingMessage && (
-        <blockquote className="serif border-l border-line pl-5 text-2xl leading-relaxed">
-          {view.closingMessage}
-          <div className="no-print mt-4">
+        <div className="flex flex-col gap-8 border-l border-line pl-5">
+          <div>
+            <p className="eyebrow">統整</p>
+            <p className="serif mt-4 text-2xl leading-relaxed">{readClosing(view.closingMessage).reflection || view.closingMessage}</p>
+          </div>
+          {readClosing(view.closingMessage).sound && (
+            <div>
+              <p className="eyebrow">聲音</p>
+              <p className="mt-4 text-sm leading-loose">{readClosing(view.closingMessage).sound}</p>
+            </div>
+          )}
+          <div className="no-print">
             <button type="button" className="btn btn-quiet px-0" disabled={busy === "closing"} onClick={() => void run("closing", async () => setView(await rewriteClosing({ data: { id } })))}>
               重寫結尾
             </button>
           </div>
-        </blockquote>
+        </div>
       )}
+
+      <div className="border-t border-line pt-8">
+        <p className="eyebrow">聲音質感</p>
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-loose">
+          {view.tonePrompt.trim() || "沒有貼上 ToneLab prompt。"}
+        </p>
+      </div>
 
       <div className="flex flex-col gap-12">
         {view.answers.map((answer, index) => {

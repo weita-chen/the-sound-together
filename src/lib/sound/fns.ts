@@ -136,6 +136,20 @@ export const makeFeedback = createServerFn({ method: "POST" })
     return run((mod) => mod.makeFeedback(data.id, data.token, data.questionId));
   });
 
+export const saveTonePrompt = createServerFn({ method: "POST" })
+  .validator((data: { id: string; token: string; prompt: string }) => {
+    if (typeof data.prompt !== "string" || data.prompt.length > LIMITS.maxText + 200) {
+      throw new Error("這段文字太長了。");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    return run(async (mod) => {
+      await mod.saveTonePrompt(data.id, data.token, data.prompt);
+      return { ok: true as const };
+    });
+  });
+
 export const submitJourney = createServerFn({ method: "POST" })
   .validator((data: { id: string; token: string }) => data)
   .handler(async ({ data }) => {

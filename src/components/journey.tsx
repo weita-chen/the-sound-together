@@ -7,7 +7,6 @@ import {
   makeFeedback,
   removeOwnAttachment,
   renameSubmission,
-  resumeByToken,
   resumeSubmission,
   saveAnswer,
   saveTonePrompt,
@@ -57,9 +56,6 @@ export function Journey() {
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [codeOpen, setCodeOpen] = useState(false);
-  const [code, setCode] = useState("");
-  const [copied, setCopied] = useState(false);
 
   const question = QUESTIONS[qIndex];
   const answer = submission?.answers[qIndex];
@@ -81,7 +77,17 @@ export function Journey() {
         setSubmission(view);
         setName(view.displayName);
         setQIndex(index);
-        setDraft(view.answers[index]?.text ?? "");
+        const savedDraft = localStorage.getItem(`${STORAGE}.draft`);
+        let draftText = view.answers[index]?.text ?? "";
+        if (savedDraft) {
+          try {
+            const parsed = JSON.parse(savedDraft) as { questionId?: string; text?: string };
+            if (parsed.questionId === QUESTIONS[index]?.id && typeof parsed.text === "string") draftText = parsed.text;
+          } catch {
+            // Ignore a broken local draft and use the saved answer.
+          }
+        }
+        setDraft(draftText);
         const next = saved.stage;
         if (next === "landing" || next === "name" || next === "review" || next === "question" || next === "done") {
           setStage(next === "done" && !view.closingMessage && view.status !== "submitted" ? "review" : next);
@@ -166,7 +172,6 @@ export function Journey() {
     setDraft("");
     setQIndex(0);
     setError(null);
-    setCode("");
     setStage("name");
   }
 
@@ -302,26 +307,6 @@ export function Journey() {
     }
   }
 
-  async function redeem() {
-    setBusy(true);
-    setError(null);
-    try {
-      const token = code.trim().toLowerCase();
-      const view = await resumeByToken({ data: { token } });
-      setSession({ id: view.id, token });
-      setSubmission(view);
-      setName(view.displayName);
-      setQIndex(0);
-      setDraft(view.answers[0]?.text ?? "");
-      setStage(view.status === "submitted" ? "done" : "review");
-      setCodeOpen(false);
-    } catch (err) {
-      setError(messageOf(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function uploadFiles(files: File[]) {
     if (!session || !files.length) return;
     const tooBig = files.some((file) => file.size > (question.media === "image" ? LIMITS.imageBytes : LIMITS.audioBytes));
@@ -363,16 +348,6 @@ export function Journey() {
     }
   }
 
-  async function copyCode() {
-    if (!session) return;
-    try {
-      await navigator.clipboard.writeText(session.token);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   const progress = stage === "review" || stage === "done" ? 1 : (qIndex + 1) / QUESTIONS.length;
   const closing = readClosing(submission?.closingMessage);
 
@@ -386,7 +361,7 @@ export function Journey() {
           </div>
         )}
         <div className="column flex flex-1 flex-col justify-center py-12 sm:py-24">
-          {stage === "landing" && (
+          {!booting && stage === "landing" && (
             <section className="rise mx-auto flex w-full max-w-md flex-col items-center gap-12 text-center sm:gap-24">
               <div className="flex flex-col items-center gap-10">
                 <p className="eyebrow">A private listening</p>
@@ -419,37 +394,11 @@ export function Journey() {
                   </button>
                 )}
               </div>
-              <div className="flex w-full flex-col items-center gap-3">
-                <button type="button" className="btn btn-quiet px-0" onClick={() => setCodeOpen((v) => !v)}>
-                  我有修改代碼
-                </button>
-                {codeOpen && (
-                  <form
-                    className="flex w-full flex-col gap-3 sm:flex-row"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void redeem();
-                    }}
-                  >
-                    <input
-                      className="field"
-                      value={code}
-                      autoComplete="off"
-                      spellCheck={false}
-                      placeholder="貼上代碼"
-                      onChange={(e) => setCode(e.target.value)}
-                    />
-                    <button type="submit" className="btn btn-ghost" disabled={busy}>
-                      找回
-                    </button>
-                  </form>
-                )}
-                {error && <p className="alert">{error}</p>}
-              </div>
+              {error && <p className="alert">{error}</p>}
             </section>
           )}
 
-          {stage === "name" && (
+          {!booting && stage === "name" && (
             <section className="rise mx-auto flex w-full max-w-md flex-col gap-10">
               <p className="eyebrow">The Sound Together</p>
               <h1 className="serif text-3xl leading-normal sm:text-4xl">怎麼稱呼你？</h1>
@@ -486,7 +435,7 @@ export function Journey() {
             </section>
           )}
 
-          {stage === "welcome" && (
+          {!booting && stage === "welcome" && (
             <section className="rise mx-auto flex min-h-[50dvh] w-full max-w-md flex-col justify-center gap-14">
               <p className="serif text-xl leading-loose sm:text-2xl">{welcome}</p>
               <button type="button" className="btn btn-primary self-start" onClick={() => setStage("question")}>
@@ -495,7 +444,7 @@ export function Journey() {
             </section>
           )}
 
-          {stage === "question" && question && (
+          {!booting && stage === "question" && question && (
             <section className="rise mx-auto flex w-full max-w-md flex-col" key={question.id}>
               <p className="eyebrow tabular-nums">
                 {String(qIndex + 1).padStart(2, "0")} / {String(QUESTIONS.length).padStart(2, "0")}
@@ -552,7 +501,7 @@ export function Journey() {
             </section>
           )}
 
-          {stage === "interlude" && (
+          {!booting && stage === "interlude" && (
             <section className="rise mx-auto flex min-h-[50dvh] w-full max-w-md flex-col justify-center gap-14">
               <p className="serif text-xl leading-loose sm:text-2xl">{line}</p>
               <button type="button" className="btn btn-primary self-start" onClick={afterInterlude}>
@@ -561,7 +510,7 @@ export function Journey() {
             </section>
           )}
 
-          {stage === "review" && submission && (
+          {!booting && stage === "review" && submission && (
             <section className="rise mx-auto flex w-full max-w-md flex-col gap-12">
               <div>
                 <p className="eyebrow">{submission.displayName}</p>
@@ -604,13 +553,13 @@ export function Journey() {
             </section>
           )}
 
-          {stage === "submitting" && (
+          {!booting && stage === "submitting" && (
             <section className="rise flex min-h-[40dvh] flex-col justify-center">
               <p className="serif text-2xl leading-loose">正在把這些回答收成一段聲音。</p>
             </section>
           )}
 
-          {stage === "done" && (
+          {!booting && stage === "done" && (
             <section className="rise mx-auto flex w-full max-w-md flex-col items-start gap-12">
               <svg className="done-ring" viewBox="0 0 80 80" aria-hidden="true">
                 <circle cx="40" cy="40" r="28" />
@@ -662,17 +611,6 @@ export function Journey() {
                   修改這份回答
                 </button>
               </div>
-              {session && (
-                <div className="w-full border-t border-line pt-6">
-                  <p className="text-sm text-faint">這份回答記在這台瀏覽器。換裝置時，用下面的代碼找回。</p>
-                  <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                    <input className="field" readOnly value={session.token} aria-label="修改代碼" />
-                    <button type="button" className="btn btn-ghost" onClick={() => void copyCode()}>
-                      {copied ? "已複製" : "複製代碼"}
-                    </button>
-                  </div>
-                </div>
-              )}
             </section>
           )}
         </div>

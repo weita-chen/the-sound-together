@@ -93,18 +93,27 @@ function geminiVisibleText(body: {
     .trim();
 }
 
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+
+function geminiModel(): string {
+  return process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+}
+
 async function geminiComplete(
+  model: string,
   system: string,
   user: string,
   maxTokens: number,
-  disableThinking: boolean,
 ): Promise<string | null> {
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
   const generationConfig: Record<string, unknown> = {
     temperature: 0.85,
     maxOutputTokens: maxTokens,
   };
-  if (disableThinking) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  // 2.5 Flash thinks by default and can spend the whole limit before the sentence.
+  // Flash-Lite stays quiet unless a thinking setting is sent, so leave it off.
+  if (/^gemini-2\.5/i.test(model) && !/lite/i.test(model)) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
@@ -118,18 +127,18 @@ async function geminiComplete(
         contents: [{ role: "user", parts: [{ text: user }] }],
         generationConfig,
       }),
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(12_000),
     },
   );
   if (!res.ok) {
-    console.error("gemini feedback failed", res.status, await res.text());
+    console.error("gemini feedback failed", model, res.status, await res.text());
     return null;
   }
   const body = (await res.json()) as {
     candidates?: { content?: { parts?: GeminiPart[] }; finishReason?: string }[];
   };
   const raw = geminiVisibleText(body);
-  if (!raw) console.error("gemini feedback empty", body.candidates?.[0]?.finishReason ?? "none");
+  if (!raw) console.error("gemini feedback empty", model, body.candidates?.[0]?.finishReason ?? "none");
   return raw || null;
 }
 async function complete(system: string, user: string, maxTokens: number): Promise<string | null> {
@@ -138,10 +147,11 @@ async function complete(system: string, user: string, maxTokens: number): Promis
   const tokens = Math.max(maxTokens, 512);
   try {
     if (provider === "gemini") {
-      return (
-        (await geminiComplete(system, user, tokens, true)) ??
-        (await geminiComplete(system, user, tokens, false))
-      );
+      const primary = geminiModel();
+      const first = await geminiComplete(primary, system, user, tokens);
+      if (first) return first;
+      if (primary === DEFAULT_GEMINI_MODEL) return null;
+      return geminiComplete(DEFAULT_GEMINI_MODEL, system, user, tokens);
     }
 
     const model = process.env.XAI_MODEL?.trim() || "grok-4.5";

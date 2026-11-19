@@ -243,8 +243,6 @@ export function Journey() {
           setStage("interlude");
           return;
         }
-        setError("這一句沒有寫成，再按一次繼續。");
-        return;
       }
       const nextText = submission?.answers[qIndex + 1]?.text ?? "";
       goIndex(qIndex + 1, nextText);

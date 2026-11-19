@@ -373,7 +373,7 @@ export function Journey() {
                 <p>有一首配樂正等著被聽見</p>
                 <p>這是一封邀請，分享一小塊你的世界</p>
                 <p>這些故事將會變成原創音樂的靈感</p>
-                <p>And it becomes the sound together.</p>
+                <p>And it becomes our sound together.</p>
               </div>
               <p className="text-xs leading-loose tracking-widest">大約 8–10 分鐘。每一題都可以略過。</p>
               <div className="flex flex-wrap gap-3">

@@ -122,20 +122,20 @@ export function formatWhen(iso: string): string {
 }
 
 export const CLOSING_FALLBACK =
-  "統整：你的世界裡，好像有一點溫暖停在安靜與遠方之間。那些畫面沒有被拆開，它們靠在一起。\n\n聲音：那首屬於你的旋律也許很慢，像從遠處走近。音色偏暖，中間留著可以呼吸的空隙。";
+  "你的世界裡，好像有一點溫暖停在安靜與遠方之間。那些畫面沒有被拆開，它們靠在一起。\n\n那首屬於你的旋律也許很慢，像從遠處走近。音色偏暖，中間留著可以呼吸的空隙。";
 
 export const EMPTY_FALLBACK =
-  "統整：你留下了名字，也留下了一點安靜。\n\n聲音：音樂有時就是從那裡開始的。很輕，幾乎還沒有旋律，只有一片可以站住的空氣。";
+  "你留下了名字，也留下了一點安靜。\n\n音樂有時就是從那裡開始的。很輕，幾乎還沒有旋律，只有一片可以站住的空氣。";
 
 export function readClosing(text: string | null | undefined): { reflection: string; sound: string } {
   const raw = (text ?? "").replace(/\r\n/g, "\n").trim();
   if (!raw) return { reflection: "", sound: "" };
-  const reflection = raw.match(/統整\s*[:：]\s*([\s\S]*?)(?=\n+\s*聲音\s*[:：]|$)/);
-  const sound = raw.match(/聲音\s*[:：]\s*([\s\S]*)$/);
-  if (reflection || sound) {
+  const labeledReflection = raw.match(/統整\s*[:：]\s*([\s\S]*?)(?=\n+\s*聲音\s*[:：]|$)/);
+  const labeledSound = raw.match(/聲音\s*[:：]\s*([\s\S]*)$/);
+  if (labeledReflection || labeledSound) {
     return {
-      reflection: (reflection?.[1] ?? "").trim(),
-      sound: (sound?.[1] ?? "").trim(),
+      reflection: (labeledReflection?.[1] ?? "").trim(),
+      sound: (labeledSound?.[1] ?? "").trim(),
     };
   }
   const parts = raw.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);

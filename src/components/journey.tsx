@@ -567,18 +567,10 @@ export function Journey() {
               <svg className="done-ring" viewBox="0 0 80 80" aria-hidden="true">
                 <circle cx="40" cy="40" r="28" />
               </svg>
-              <div className="flex flex-col gap-6">
-                <p className="eyebrow">統整</p>
-                <h1 className="serif text-2xl leading-loose">
-                  {closing.reflection || "謝謝你把世界的一角留在這裡。"}
-                </h1>
-              </div>
-              {closing.sound && (
-                <div className="flex flex-col gap-6">
-                  <p className="eyebrow">聲音</p>
-                  <p className="text-sm leading-loose tracking-wide">{closing.sound}</p>
-                </div>
-              )}
+              <h1 className="serif text-2xl leading-loose">
+                {closing.reflection || "謝謝你把世界的一角留在這裡。"}
+              </h1>
+              {closing.sound && <p className="text-sm leading-loose tracking-wide">{closing.sound}</p>}
               <div className="flex w-full flex-col gap-6 border-t border-line pt-10">
                 <p className="eyebrow">可略過</p>
                 <h2 className="serif text-2xl leading-normal">為這段聲音加一點質感</h2>

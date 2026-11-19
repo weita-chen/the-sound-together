@@ -336,15 +336,9 @@ export function StudioProfile({ id }: { id: string }) {
 
       {view.closingMessage && (
         <div className="flex flex-col gap-8 border-l border-line pl-5">
-          <div>
-            <p className="eyebrow">統整</p>
-            <p className="serif mt-4 text-2xl leading-relaxed">{readClosing(view.closingMessage).reflection || view.closingMessage}</p>
-          </div>
+          <p className="serif text-2xl leading-relaxed">{readClosing(view.closingMessage).reflection || view.closingMessage}</p>
           {readClosing(view.closingMessage).sound && (
-            <div>
-              <p className="eyebrow">聲音</p>
-              <p className="mt-4 text-sm leading-loose">{readClosing(view.closingMessage).sound}</p>
-            </div>
+            <p className="text-sm leading-loose">{readClosing(view.closingMessage).sound}</p>
           )}
           <div className="no-print">
             <button type="button" className="btn btn-quiet px-0" disabled={busy === "closing"} onClick={() => void run("closing", async () => setView(await rewriteClosing({ data: { id } })))}>

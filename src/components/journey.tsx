@@ -375,7 +375,6 @@ export function Journey() {
                 <p>這些故事將會變成原創音樂的靈感</p>
                 <p>And it becomes our sound together.</p>
               </div>
-              <p className="text-xs leading-loose tracking-widest">大約 8–10 分鐘。每一題都可以略過。</p>
               <div className="flex flex-wrap gap-3">
                 {session && submission?.status === "submitted" ? (
                   <button type="button" className="btn btn-primary" disabled={booting} onClick={() => setStage("done")}>

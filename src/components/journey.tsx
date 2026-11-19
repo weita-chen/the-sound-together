@@ -402,7 +402,6 @@ export function Journey() {
             <section className="rise mx-auto flex w-full max-w-md flex-col gap-10">
               <p className="eyebrow">The Sound Together</p>
               <h1 className="serif text-3xl leading-normal sm:text-4xl">怎麼稱呼你？</h1>
-              <p className="text-sm leading-loose">可以用名字，或你喜歡的暱稱。不用註冊。</p>
               <form
                 className="flex flex-col gap-4"
                 onSubmit={(e) => {

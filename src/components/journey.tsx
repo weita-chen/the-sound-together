@@ -569,10 +569,10 @@ export function Journey() {
               </h1>
               {closing.sound && <p className="text-sm leading-loose tracking-wide">{closing.sound}</p>}
               <div className="flex w-full flex-col gap-6 border-t border-line pt-10">
-                <p className="eyebrow">可略過</p>
-                <h2 className="serif text-2xl leading-normal">為這段聲音加一點質感</h2>
+                <p className="eyebrow">(optional)</p>
+                <h2 className="serif text-2xl leading-normal">如果你想為這段聲音加一點質感</h2>
                 <p className="text-sm leading-loose">
-                  到聲音鍛造實驗室，把音色、空間和質地組好。複製那段 prompt，貼回這裡。沒有也沒關係。
+                  到聲音鍛造實驗室，直覺地尋找你想要的音色、空間和質地。複製那段文字貼回這裡。
                 </p>
                 <a
                   className="btn btn-ghost self-start"
@@ -590,7 +590,7 @@ export function Journey() {
                   className="write"
                   value={tone}
                   maxLength={LIMITS.maxText}
-                  placeholder="貼上在 ToneLab 複製的 prompt"
+                  placeholder="貼上在 ToneLab 複製的文字"
                   onChange={(e) => setTone(e.target.value)}
                 />
                 {toneNote && <p className="text-sm">{toneNote}</p>}
@@ -599,8 +599,25 @@ export function Journey() {
                 <button type="button" className="btn btn-primary" onClick={() => setStage("landing")}>
                   回到開頭
                 </button>
-                <button type="button" className="btn btn-ghost" onClick={() => setStage("review")}>
-                  修改這份回答
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!session) {
+                      setStage("landing");
+                      return;
+                    }
+                    setBusy(true);
+                    void saveTonePrompt({
+                      data: { id: session.id, token: session.token, prompt: tone },
+                    })
+                      .then(() => setStage("landing"))
+                      .catch(() => setToneNote("剛剛沒有留下，再貼一次。"))
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  完成送出
                 </button>
               </div>
             </section>

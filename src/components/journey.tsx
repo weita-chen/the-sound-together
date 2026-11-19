@@ -572,7 +572,18 @@ export function Journey() {
                 <p className="eyebrow">(optional)</p>
                 <h2 className="serif text-2xl leading-normal">如果你想為這段聲音加一點質感</h2>
                 <p className="text-sm leading-loose">
-                  到聲音鍛造實驗室，直覺地尋找你想要的音色、空間和質地。複製那段文字貼回這裡。
+                  歡迎到聲音鍛造實驗室：
+                  <a
+                    className="underline decoration-white/40 underline-offset-4 break-all"
+                    href="https://weita-chen.github.io/tonelab/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    https://weita-chen.github.io/tonelab/
+                  </a>
+                </p>
+                <p className="text-sm leading-loose">
+                  直覺地尋找你想要的音色、空間和質地。複製那段文字貼回這裡。
                 </p>
                 <a
                   className="btn btn-ghost self-start"
